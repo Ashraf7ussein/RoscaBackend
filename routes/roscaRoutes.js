@@ -260,7 +260,7 @@ router.put("/update/:id", async (req, res) => {
 });
 
 // Close Rosca Method
-router.put("/close/:id", async (req, res) => {
+router.delete("/close/:id", async (req, res) => {
   const roscaId = req.params.id;
 
   if (!roscaId) {
