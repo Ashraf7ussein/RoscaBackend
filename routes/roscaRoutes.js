@@ -298,4 +298,26 @@ router.put("/close/:id", async (req, res) => {
   }
 });
 
+// PUT /api/rosca/members/:roscaId/:memberId/status
+router.put("/members/:roscaId/:memberId/status", async (req, res) => {
+  const { roscaId, memberId } = req.params;
+  const { status } = req.body; // 'accepted' or 'rejected'
+
+  try {
+    const rosca = await Rosca.findById(roscaId);
+    if (!rosca) return res.status(404).json({ error: "Rosca not found" });
+
+    const member = rosca.members.find((m) => m.id === memberId);
+    if (!member) return res.status(404).json({ error: "Member not found" });
+
+    member.memberStatus = status;
+
+    await rosca.save();
+    res.json({ success: true, member });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 module.exports = router;
