@@ -113,7 +113,7 @@ router.get("/user/roscas/:id", async (req, res) => {
 });
 
 // activate / stop / close ->  rosca method
-router.patch("/status/:id", async (req, res) => {
+router.put("/status/:id", async (req, res) => {
   const roscaId = req.params.id;
   const { status } = req.body;
 
