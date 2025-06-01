@@ -223,21 +223,6 @@ router.put("/update/:id", async (req, res) => {
   const { name, membersCount, monthlyAmount, startingDate, endingDate } =
     req.body;
 
-  // Validate required fields
-  if (
-    !name ||
-    !membersCount ||
-    !monthlyAmount ||
-    !startingDate ||
-    !endingDate
-  ) {
-    return res.status(400).json({
-      success: false,
-      error:
-        "Missing or invalid required fields: name, membersCount, monthlyAmount, startingDate, endingDate.",
-    });
-  }
-
   try {
     // Find the rosca by ID
     const rosca = await Rosca.findById(roscaId);
