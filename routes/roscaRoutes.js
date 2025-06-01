@@ -312,4 +312,46 @@ router.get("/user/roscas/:id", async (req, res) => {
   }
 });
 
+// activate / stop rosca method
+router.patch("/rosca/status/:id", async (req, res) => {
+  const roscaId = req.params.id;
+  const { status } = req.body;
+
+  const allowedStatuses = ["pending", "active", "closed"];
+
+  if (!allowedStatuses.includes(status)) {
+    return res.status(400).json({
+      success: false,
+      error: "Invalid status. Allowed: pending, active, closed.",
+    });
+  }
+
+  try {
+    const updatedRosca = await Rosca.findByIdAndUpdate(
+      roscaId,
+      { roscaStatus: status },
+      { new: true }
+    );
+
+    if (!updatedRosca) {
+      return res.status(404).json({
+        success: false,
+        message: "Rosca not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Rosca status updated to '${status}'`,
+      rosca: updatedRosca,
+    });
+  } catch (err) {
+    console.error("Error updating rosca status:", err);
+    res.status(500).json({
+      success: false,
+      error: "Server error while updating status",
+    });
+  }
+});
+
 module.exports = router;
