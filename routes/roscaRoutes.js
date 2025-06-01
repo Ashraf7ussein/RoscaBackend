@@ -313,7 +313,7 @@ router.get("/user/roscas/:id", async (req, res) => {
 });
 
 // activate / stop rosca method
-router.patch("/rosca/status/:id", async (req, res) => {
+router.patch("/status/:id", async (req, res) => {
   const roscaId = req.params.id;
   const { status } = req.body;
 
@@ -350,6 +350,69 @@ router.patch("/rosca/status/:id", async (req, res) => {
     res.status(500).json({
       success: false,
       error: "Server error while updating status",
+    });
+  }
+});
+
+//  join method
+router.post("/rosca/join", async (req, res) => {
+  const { invitationCode, memberId, memberName } = req.body;
+
+  // Validate
+  if (!invitationCode || !memberId || !memberName) {
+    return res.status(400).json({
+      success: false,
+      error: "Invitation code, memberId, and memberName are required.",
+    });
+  }
+
+  try {
+    const rosca = await Rosca.findOne({ invitationCode });
+
+    if (!rosca) {
+      return res.status(404).json({
+        success: false,
+        error: "Rosca not found with this invitation code.",
+      });
+    }
+
+    // Check if member already exists
+    const alreadyMember = rosca.membersArray.some(
+      (member) => member._id === memberId
+    );
+
+    if (alreadyMember) {
+      return res.status(409).json({
+        success: false,
+        error: "Member already joined this Rosca.",
+      });
+    }
+
+    // Add new member
+    rosca.membersArray.push({
+      _id: memberId,
+      name: memberName,
+      isAdmin: false,
+      memberPaymentStatus: "unpaid",
+      totalPayments: 0,
+      memberOrder: rosca.membersArray.length + 1,
+      memberStatus: "waiting",
+      assignedDate: new Date().toISOString(),
+      payments: [],
+    });
+
+    await rosca.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Successfully joined the Rosca.",
+      rosca,
+    });
+  } catch (err) {
+    console.error("Error joining Rosca:", err);
+    res.status(500).json({
+      success: false,
+      error: "Server error while joining Rosca.",
     });
   }
 });
