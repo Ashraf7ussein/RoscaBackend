@@ -307,7 +307,7 @@ router.put("/members/:roscaId/:memberId/status", async (req, res) => {
     const rosca = await Rosca.findById(roscaId);
     if (!rosca) return res.status(404).json({ error: "Rosca not found" });
 
-    const member = rosca.members.find((m) => m.id === memberId);
+    const member = rosca.membersArray.find((m) => m.id === memberId);
     if (!member) return res.status(404).json({ error: "Member not found" });
 
     member.memberStatus = status;
