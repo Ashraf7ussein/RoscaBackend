@@ -259,4 +259,43 @@ router.put("/update/:id", async (req, res) => {
   }
 });
 
+// Close Rosca Method
+router.put("/close/:id", async (req, res) => {
+  const roscaId = req.params.id;
+
+  if (!roscaId) {
+    return res.status(400).json({
+      success: false,
+      error: "Rosca ID is required.",
+    });
+  }
+
+  try {
+    const updatedRosca = await Rosca.findByIdAndUpdate(
+      roscaId,
+      { roscaStatus: "closed" },
+      { new: true }
+    );
+
+    if (!updatedRosca) {
+      return res.status(404).json({
+        success: false,
+        message: "Rosca not found.",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Rosca successfully closed.",
+      rosca: updatedRosca,
+    });
+  } catch (err) {
+    console.error("Error closing Rosca:", err);
+    res.status(500).json({
+      success: false,
+      error: "Server error while closing Rosca.",
+    });
+  }
+});
+
 module.exports = router;
