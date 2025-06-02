@@ -320,4 +320,54 @@ router.put("/members/:roscaId/:memberId/status", async (req, res) => {
   }
 });
 
+// DELETE /api/rosca/members/:roscaId/:memberId
+router.delete("/members/:roscaId/:memberId", async (req, res) => {
+  const { roscaId, memberId } = req.params;
+
+  if (!roscaId || !memberId) {
+    return res.status(400).json({
+      success: false,
+      error: "Rosca ID and Member ID are required.",
+    });
+  }
+
+  try {
+    const rosca = await Rosca.findById(roscaId);
+
+    if (!rosca) {
+      return res.status(404).json({
+        success: false,
+        error: "Rosca not found.",
+      });
+    }
+
+    const originalLength = rosca.membersArray.length;
+
+    rosca.membersArray = rosca.membersArray.filter(
+      (member) => member._id.toString() !== memberId
+    );
+
+    if (rosca.membersArray.length === originalLength) {
+      return res.status(404).json({
+        success: false,
+        error: "Member not found in Rosca.",
+      });
+    }
+
+    await rosca.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Member successfully removed from Rosca.",
+      rosca,
+    });
+  } catch (error) {
+    console.error("Error deleting member:", error);
+    res.status(500).json({
+      success: false,
+      error: "Server error while deleting member.",
+    });
+  }
+});
+
 module.exports = router;
