@@ -83,29 +83,24 @@ router.get("/user/roscas/:id", async (req, res) => {
   const userId = req.params.id;
 
   if (!userId) {
-    return res
-      .status(400)
-      .json({ success: false, error: "User ID is required." });
+    return res.status(400).json({
+      success: false,
+      error: "User ID is required.",
+    });
   }
+
   try {
     const roscas = await Rosca.find({
       "membersArray._id": userId,
     });
 
-    if (!roscas.length) {
-      return res.status(404).json({
-        success: false,
-        message: "No roscas found for this user.",
-      });
-    }
-
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       roscas,
     });
   } catch (err) {
     console.error("Error fetching roscas:", err);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       error: "Server error while fetching roscas.",
     });
