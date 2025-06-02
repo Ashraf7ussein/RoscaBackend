@@ -40,7 +40,7 @@ router.post("/create", async (req, res) => {
     const invitationCode = generateInvitationCode();
 
     const adminMember = {
-      _id: userData.uid,
+      id: userData.uid,
       name: userData.displayName,
       isAdmin: true,
       memberPaymentStatus: "paid",
@@ -91,7 +91,7 @@ router.get("/user/roscas/:id", async (req, res) => {
 
   try {
     const roscas = await Rosca.find({
-      "membersArray._id": userId,
+      "membersArray.id": userId,
     });
 
     return res.status(200).json({

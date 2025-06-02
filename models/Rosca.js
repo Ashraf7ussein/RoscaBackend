@@ -8,7 +8,7 @@ const memberPayments = new mongoose.Schema({
 });
 
 const memberSchema = new mongoose.Schema({
-  _id: String,
+  id: String,
   name: String,
   isAdmin: Boolean,
   memberPaymentStatus: String, // 'paid', 'unpaid', 'nextPay'
