@@ -219,7 +219,6 @@ router.put("/update/:id", async (req, res) => {
     req.body;
 
   try {
-    // Find the rosca by ID
     const rosca = await Rosca.findById(roscaId);
     if (!rosca) {
       return res
@@ -227,23 +226,19 @@ router.put("/update/:id", async (req, res) => {
         .json({ success: false, error: "Rosca not found." });
     }
 
-    // Update fields
     rosca.name = name;
     rosca.membersCount = membersCount;
     rosca.monthlyAmount = monthlyAmount;
     rosca.startingDate = new Date(startingDate);
     rosca.endingDate = new Date(endingDate);
-
-    // Recalculate totalAmount
     rosca.totalAmount = membersCount * monthlyAmount;
 
-    // Save updated rosca
-    const updatedRosca = await rosca.save();
+    await rosca.save();
 
     res.status(200).json({
       success: true,
       message: "Rosca details updated successfully.",
-      rosca: updatedRosca,
+      rosca,
     });
   } catch (err) {
     console.error("Error updating Rosca details:", err);
