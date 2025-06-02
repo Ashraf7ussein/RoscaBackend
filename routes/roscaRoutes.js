@@ -7,7 +7,50 @@ function generateInvitationCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// create rosca method
+// Helper to update payments and payment statuses for all members
+async function updatePaymentsForAllMembers(rosca) {
+  // Assuming monthly payments happen from startingDate to endingDate (monthly increments)
+  const start = new Date(rosca.startingDate);
+  const end = new Date(rosca.endingDate);
+  const months = [];
+
+  // Generate list of months in ISO string (YYYY-MM format) between start and end dates inclusive
+  let current = new Date(start);
+  while (current <= end) {
+    months.push(current.toISOString().substring(0, 7));
+    current.setMonth(current.getMonth() + 1);
+  }
+
+  // For each member, update their payments array with all months
+  rosca.membersArray.forEach((member) => {
+    member.payments = months.map((month) => {
+      // Check if payment already exists for this month
+      const existingPayment = member.payments.find((p) => p.month === month);
+      return (
+        existingPayment || {
+          toUserId: member._id,
+          toUserName: member.name,
+          month,
+          paymentStatus:
+            member.memberStatus === "accepted" ? "unpaid" : "pending",
+        }
+      );
+    });
+    // Update totalPayments based on paid payments
+    member.totalPayments =
+      member.payments.filter((p) => p.paymentStatus === "paid").length *
+      rosca.monthlyAmount;
+
+    // Update memberPaymentStatus based on overall payment status (simplified example)
+    member.memberPaymentStatus = member.payments.every(
+      (p) => p.paymentStatus === "paid"
+    )
+      ? "paid"
+      : "unpaid";
+  });
+}
+
+// Create Rosca
 router.post("/create", async (req, res) => {
   try {
     const {
@@ -52,7 +95,7 @@ router.post("/create", async (req, res) => {
         {
           toUserId: userData.uid,
           toUserName: userData.displayName,
-          month: startingDate,
+          month: startingDate.substring(0, 7),
           paymentStatus: "paid",
         },
       ],
@@ -78,7 +121,7 @@ router.post("/create", async (req, res) => {
   }
 });
 
-// get all for given id
+// Get all Roscas for given user ID
 router.get("/user/roscas/:id", async (req, res) => {
   const userId = req.params.id;
 
@@ -107,7 +150,7 @@ router.get("/user/roscas/:id", async (req, res) => {
   }
 });
 
-// activate / stop / close ->  rosca method
+// Update Rosca status (pending, active, closed)
 router.put("/status/:id", async (req, res) => {
   const roscaId = req.params.id;
   const { status } = req.body;
@@ -149,11 +192,10 @@ router.put("/status/:id", async (req, res) => {
   }
 });
 
-//  join method
+// Join Rosca
 router.post("/join", async (req, res) => {
   const { invitationCode, memberId, memberName } = req.body;
 
-  // Validate
   if (!invitationCode || !memberId || !memberName) {
     return res.status(400).json({
       success: false,
@@ -171,9 +213,8 @@ router.post("/join", async (req, res) => {
       });
     }
 
-    // Check if member already exists
     const alreadyMember = rosca.membersArray.some(
-      (member) => member._id === memberId
+      (member) => member._id.toString() === memberId.toString()
     );
 
     if (alreadyMember) {
@@ -183,7 +224,6 @@ router.post("/join", async (req, res) => {
       });
     }
 
-    // Add new member
     rosca.membersArray.push({
       _id: memberId,
       name: memberName,
@@ -195,6 +235,9 @@ router.post("/join", async (req, res) => {
       assignedDate: new Date().toISOString(),
       payments: [],
     });
+
+    // Update payments for all members after a new join
+    await updatePaymentsForAllMembers(rosca);
 
     await rosca.save();
 
@@ -212,7 +255,7 @@ router.post("/join", async (req, res) => {
   }
 });
 
-// Update Rosca details method
+// Update Rosca details
 router.put("/update/:id", async (req, res) => {
   const roscaId = req.params.id;
   const { name, membersCount, monthlyAmount, startingDate, endingDate } =
@@ -233,6 +276,9 @@ router.put("/update/:id", async (req, res) => {
     rosca.endingDate = new Date(endingDate);
     rosca.totalAmount = membersCount * monthlyAmount;
 
+    // After updating details, update payments for members
+    await updatePaymentsForAllMembers(rosca);
+
     await rosca.save();
 
     res.status(200).json({
@@ -249,7 +295,7 @@ router.put("/update/:id", async (req, res) => {
   }
 });
 
-// Close Rosca Method
+// Close Rosca
 router.put("/close/:id", async (req, res) => {
   const roscaId = req.params.id;
 
@@ -288,29 +334,41 @@ router.put("/close/:id", async (req, res) => {
   }
 });
 
-// PUT /api/rosca/members/:roscaId/:memberId/status
+// Update Member Status (accepted / rejected)
 router.put("/members/:roscaId/:memberId/status", async (req, res) => {
   const { roscaId, memberId } = req.params;
-  const { status } = req.body; // 'accepted' or 'rejected'
+  const { status } = req.body; // expected: 'accepted' or 'rejected'
+
+  if (!["accepted", "rejected"].includes(status)) {
+    return res.status(400).json({
+      success: false,
+      error: "Invalid status. Allowed: accepted, rejected.",
+    });
+  }
 
   try {
     const rosca = await Rosca.findById(roscaId);
     if (!rosca) return res.status(404).json({ error: "Rosca not found" });
 
-    const member = rosca.membersArray.find((m) => m.id === memberId);
+    const member = rosca.membersArray.find(
+      (m) => m._id.toString() === memberId.toString()
+    );
     if (!member) return res.status(404).json({ error: "Member not found" });
 
     member.memberStatus = status;
 
+    // Update payments after status change
+    await updatePaymentsForAllMembers(rosca);
+
     await rosca.save();
-    res.json({ success: true, member });
+    res.json({ success: true, member, rosca });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-// DELETE /api/rosca/members/:roscaId/:memberId
+// Delete member
 router.delete("/members/:roscaId/:memberId", async (req, res) => {
   const { roscaId, memberId } = req.params;
 
@@ -334,7 +392,7 @@ router.delete("/members/:roscaId/:memberId", async (req, res) => {
     const originalLength = rosca.membersArray.length;
 
     rosca.membersArray = rosca.membersArray.filter(
-      (member) => member._id.toString() !== memberId
+      (member) => member._id.toString() !== memberId.toString()
     );
 
     if (rosca.membersArray.length === originalLength) {
@@ -343,6 +401,14 @@ router.delete("/members/:roscaId/:memberId", async (req, res) => {
         error: "Member not found in Rosca.",
       });
     }
+
+    // Update memberOrder for remaining members
+    rosca.membersArray.forEach((m, idx) => {
+      m.memberOrder = idx + 1;
+    });
+
+    // Update payments after member removal
+    await updatePaymentsForAllMembers(rosca);
 
     await rosca.save();
 
