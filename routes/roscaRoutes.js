@@ -181,6 +181,26 @@ router.post("/join", async (req, res) => {
       });
     }
 
+    // Find latest assignedDate among accepted members
+    const acceptedMembers = rosca.membersArray.filter(
+      (m) => m.memberStatus === "accepted"
+    );
+
+    let assignedDate;
+    if (acceptedMembers.length > 0) {
+      const latestDate = acceptedMembers
+        .map((m) => new Date(m.assignedDate))
+        .sort((a, b) => b - a)[0];
+
+      const nextMonthDate = new Date(latestDate);
+      nextMonthDate.setMonth(nextMonthDate.getMonth() + 1);
+      assignedDate = nextMonthDate.toISOString().slice(0, 10);
+    } else {
+      // If no accepted members, start with rosca.startingDate
+      assignedDate = new Date(rosca.startingDate).toISOString().slice(0, 10);
+    }
+
+    // Add the new member
     rosca.membersArray.push({
       _id: memberId,
       name: memberName,
@@ -189,7 +209,7 @@ router.post("/join", async (req, res) => {
       totalPayments: 0,
       memberOrder: rosca.membersArray.length + 1,
       memberStatus: "waiting",
-      assignedDate: new Date().toISOString(),
+      assignedDate,
       payments: [],
     });
 
