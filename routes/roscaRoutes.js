@@ -7,49 +7,6 @@ function generateInvitationCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// Helper to update payments and payment statuses for all members
-async function updatePaymentsForAllMembers(rosca) {
-  // Assuming monthly payments happen from startingDate to endingDate (monthly increments)
-  const start = new Date(rosca.startingDate);
-  const end = new Date(rosca.endingDate);
-  const months = [];
-
-  // Generate list of months in ISO string (YYYY-MM format) between start and end dates inclusive
-  let current = new Date(start);
-  while (current <= end) {
-    months.push(current.toISOString().substring(0, 7));
-    current.setMonth(current.getMonth() + 1);
-  }
-
-  // For each member, update their payments array with all months
-  rosca.membersArray.forEach((member) => {
-    member.payments = months.map((month) => {
-      // Check if payment already exists for this month
-      const existingPayment = member.payments.find((p) => p.month === month);
-      return (
-        existingPayment || {
-          toUserId: member._id,
-          toUserName: member.name,
-          month,
-          paymentStatus:
-            member.memberStatus === "accepted" ? "unpaid" : "pending",
-        }
-      );
-    });
-    // Update totalPayments based on paid payments
-    member.totalPayments =
-      member.payments.filter((p) => p.paymentStatus === "paid").length *
-      rosca.monthlyAmount;
-
-    // Update memberPaymentStatus based on overall payment status (simplified example)
-    member.memberPaymentStatus = member.payments.every(
-      (p) => p.paymentStatus === "paid"
-    )
-      ? "paid"
-      : "unpaid";
-  });
-}
-
 // Create Rosca
 router.post("/create", async (req, res) => {
   try {
@@ -79,7 +36,7 @@ router.post("/create", async (req, res) => {
         .json({ success: false, error: "Missing user data." });
     }
 
-    const totalAmount = membersCount * monthlyAmount;
+    const totalAmount = monthlyAmount;
     const invitationCode = generateInvitationCode();
 
     const adminMember = {
@@ -236,9 +193,6 @@ router.post("/join", async (req, res) => {
       payments: [],
     });
 
-    // Update payments for all members after a new join
-    await updatePaymentsForAllMembers(rosca);
-
     await rosca.save();
 
     res.status(200).json({
@@ -337,7 +291,7 @@ router.put("/close/:id", async (req, res) => {
 // Update Member Status (accepted / rejected)
 router.put("/members/:roscaId/:memberId/status", async (req, res) => {
   const { roscaId, memberId } = req.params;
-  const { status } = req.body; // expected: 'accepted' or 'rejected'
+  const { status } = req.body;
 
   if (!["accepted", "rejected"].includes(status)) {
     return res.status(400).json({
@@ -357,8 +311,36 @@ router.put("/members/:roscaId/:memberId/status", async (req, res) => {
 
     member.memberStatus = status;
 
-    // Update payments after status change
-    await updatePaymentsForAllMembers(rosca);
+    if (status === "accepted") {
+      // 1. Initialize payments for this member toward other accepted members
+      const acceptedMembers = rosca.membersArray.filter(
+        (m) =>
+          m._id.toString() !== memberId.toString() &&
+          m.memberStatus === "accepted"
+      );
+
+      member.payments = acceptedMembers.map((other) => ({
+        toUserId: other._id,
+        toUserName: other.name,
+        month: member.assignedDate,
+        paymentStatus: "unpaid",
+      }));
+
+      // 2. Add unpaid payments to other accepted members toward the new member
+      acceptedMembers.forEach((m) => {
+        if (!Array.isArray(m.payments)) m.payments = [];
+        m.payments.push({
+          toUserId: member._id,
+          toUserName: member.name,
+          month: m.assignedDate,
+          paymentStatus: "unpaid",
+        });
+      });
+
+      // 3. Update totalAmount = acceptedMembers x monthlyAmount
+      const totalAcceptedCount = acceptedMembers.length + 1; // include the just-accepted member
+      rosca.totalAmount = totalAcceptedCount * rosca.monthlyAmount;
+    }
 
     await rosca.save();
     res.json({ success: true, member, rosca });
