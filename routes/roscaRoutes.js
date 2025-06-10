@@ -428,4 +428,119 @@ router.delete("/members/:roscaId/:memberId", async (req, res) => {
   }
 });
 
+// Change admin of a Rosca
+router.put("/change-admin/:roscaId", async (req, res) => {
+  const { roscaId } = req.params;
+  const { newAdminId } = req.body;
+
+  if (!newAdminId) {
+    return res.status(400).json({
+      success: false,
+      error: "newAdminId is required in the request body.",
+    });
+  }
+
+  try {
+    const rosca = await Rosca.findById(roscaId);
+    if (!rosca) {
+      return res.status(404).json({
+        success: false,
+        error: "Rosca not found.",
+      });
+    }
+
+    // Find current admin and demote
+    const currentAdmin = rosca.membersArray.find((m) => m.isAdmin === true);
+    if (currentAdmin) {
+      currentAdmin.isAdmin = false;
+    }
+
+    // Find new admin member
+    const newAdmin = rosca.membersArray.find(
+      (m) => m._id.toString() === newAdminId.toString()
+    );
+
+    if (!newAdmin) {
+      return res.status(404).json({
+        success: false,
+        error: "Member to be promoted as admin not found in Rosca.",
+      });
+    }
+
+    newAdmin.isAdmin = true;
+
+    await rosca.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Member ${newAdmin.name} is now the admin.`,
+      rosca,
+    });
+  } catch (error) {
+    console.error("Error changing Rosca admin:", error);
+    res.status(500).json({
+      success: false,
+      error: "Server error while changing admin.",
+    });
+  }
+});
+
+// Change admin of a Rosca
+router.put("/change-admin/:roscaId", async (req, res) => {
+  const { roscaId } = req.params;
+  const { newAdminId } = req.body;
+
+  if (!newAdminId) {
+    return res.status(400).json({
+      success: false,
+      error: "newAdminId is required in the request body.",
+    });
+  }
+
+  try {
+    const rosca = await Rosca.findById(roscaId);
+    if (!rosca) {
+      return res.status(404).json({
+        success: false,
+        error: "Rosca not found.",
+      });
+    }
+
+    // Find current admin and demote
+    const currentAdmin = rosca.membersArray.find((m) => m.isAdmin === true);
+    if (currentAdmin) {
+      currentAdmin.isAdmin = false;
+    }
+
+    // Find new admin member
+    const newAdmin = rosca.membersArray.find(
+      (m) => m._id.toString() === newAdminId.toString()
+    );
+
+    if (!newAdmin) {
+      return res.status(404).json({
+        success: false,
+        error: "Member to be promoted as admin not found in Rosca.",
+      });
+    }
+
+    newAdmin.isAdmin = true;
+
+    await rosca.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Member ${newAdmin.name} is now the admin.`,
+      rosca,
+    });
+  } catch (error) {
+    console.error("Error changing Rosca admin:", error);
+    res.status(500).json({
+      success: false,
+      error: "Server error while changing admin.",
+    });
+  }
+});
+
+
 module.exports = router;
